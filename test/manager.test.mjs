@@ -1,0 +1,14 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import fs from 'node:fs/promises';
+import path from 'node:path';
+import os from 'node:os';
+import { Manager } from '../lib/manager.mjs';
+const catalog=[{id:'a'},{id:'b'},{id:'c'}];
+async function fixture(t,worker){const root=await fs.mkdtemp(path.join(os.tmpdir(),'mw-console-test-'));t.after(()=>fs.rm(root,{recursive:true,force:true}));const m=new Manager(root,catalog,{spawnCase:worker,warmRepetitions:1});await m.init();return m;}
+async function until(predicate){for(let i=0;i<200;i++){if(await predicate())return;await new Promise(r=>setTimeout(r,5));}throw new Error('condition timeout');}
+test('only one worker runs, rejects a concurrent batch, and persists all results',async t=>{let concurrency=0,max=0;const m=await fixture(t,async id=>{max=Math.max(max,++concurrency);await new Promise(r=>setTimeout(r,8));concurrency--;return{id,functional:'pass',restored:true};});const run=await m.start(['a','b','c']);await assert.rejects(()=>m.start(['a']),/占用/);await until(()=>!m.active);assert.equal(max,1);const saved=await m.read(run.id);assert.equal(saved.status,'completed');assert.deepEqual(saved.results.map(r=>r.id),['a','b','c']);});
+test('pause waits for current case; resume does not rerun completed cases',async t=>{let release;const m=await fixture(t,id=>id==='a'?new Promise(r=>release=()=>r({id,functional:'pass'})):Promise.resolve({id,functional:'partial'}));const run=await m.start(['a','b']);await until(()=>!!release);await m.control('pause');release();await until(()=>run.status==='paused');assert.deepEqual(run.results.map(r=>r.id),['a']);await m.control('resume');await until(()=>!m.active);assert.deepEqual(run.selected,['a','b']);assert.deepEqual(run.results.map(r=>r.id),['a','b']);});
+test('stop completes current cleanup and skips remaining cases',async t=>{let release;const m=await fixture(t,id=>new Promise(r=>release=()=>r({id,functional:'pass',restored:true})));const run=await m.start(['a','b']);await until(()=>!!release);await m.control('stop');assert.equal(run.results.length,0);release();await until(()=>!m.active);assert.equal(run.status,'stopped');assert.equal(run.results.length,1);});
+test('startup recovers unfinished runs as interrupted and rejects path traversal',async t=>{const m=await fixture(t,()=>{});const old={id:'1234567890-old',status:'running',logs:[],startedAt:'2026-10-20',results:[],selected:['a']};await m.save(old);await m.init();assert.equal((await m.read(old.id)).status,'interrupted');await assert.rejects(()=>m.read('../outside'));await assert.rejects(()=>m.start(['arbitrary-script']));});
+test('cleanup issue stops the batch rather than continuing against changed state',async t=>{const m=await fixture(t,async id=>({id,functional:'failed',cleanupIssues:['restore failed']}));const run=await m.start(['a','b']);await until(()=>!m.active);assert.equal(run.status,'stopped');assert.equal(run.results.length,1);});

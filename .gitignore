@@ -1,0 +1,21 @@
+# Local execution evidence and screenshots stay on the test device.
+data/*
+!data/cases.json
+!data/README.md
+runs/*
+!runs/.gitkeep
+
+node_modules/
+.venv/
+__pycache__/
+*.pyc
+*.log
+*.tmp
+.env
+.env.*
+*.pem
+*.key
+*.p12
+*.pfx
+.DS_Store
+Thumbs.db

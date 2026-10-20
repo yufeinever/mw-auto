@@ -1,0 +1,24 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import fs from 'node:fs/promises';
+import path from 'node:path';
+import os from 'node:os';
+import http from 'node:http';
+import { fileURLToPath } from 'node:url';
+import { createConsole } from '../server.mjs';
+test('loopback HTTP validates Host, Origin, CSRF, and script allowlist',async t=>{
+  const root=await fs.mkdtemp(path.join(os.tmpdir(),'mw-server-test-'));
+  const source=path.dirname(path.dirname(fileURLToPath(import.meta.url)));
+  await fs.mkdir(path.join(root,'data'));await fs.cp(path.join(source,'data/cases.json'),path.join(root,'data/cases.json'));await fs.cp(path.join(source,'public'),path.join(root,'public'),{recursive:true});
+  const app=await createConsole({port:0,projectRoot:root});
+  t.after(async()=>{await new Promise(r=>app.server.close(r));await fs.rm(root,{recursive:true,force:true});});
+  const base=`http://127.0.0.1:${app.port}`;const state=await fetch(base+'/api/state').then(r=>r.json());
+  assert.equal(state.catalog.length,44);
+  const spoofed=await new Promise((resolve,reject)=>{const req=http.request(base+'/api/state',{headers:{Host:'evil.test'}},res=>{res.resume();resolve(res.statusCode);});req.on('error',reject);req.end();});
+  assert.equal(spoofed,403);
+  assert.equal((await fetch(base+'/api/state',{headers:{Origin:'https://evil.test'}})).status,403);
+  assert.equal((await fetch(base+'/api/run',{method:'POST',body:'{}'})).status,403);
+  assert.equal((await fetch(base+'/api/run',{method:'POST',headers:{'X-MW-CSRF':state.csrf},body:JSON.stringify({ids:['../../cmd.exe']})})).status,409);
+  assert.equal((await fetch(base+'/../../package.json')).status,404);
+  assert.match((await fetch(base)).headers.get('content-security-policy'),/frame-ancestors 'none'/);
+});
