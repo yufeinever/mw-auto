@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>MobileWork · 本地验证控制台</title><link rel="stylesheet" href="/style.css"></head>
 <body>
-<header><div class="brand"><span class="mark">M</span><div><h1>MobileWork <span>本地验证控制台</span></h1><p>Windows 功能探测 · 脚本执行 · 结果留档</p></div></div><div class="header-right"><span class="version">v0.0.7</span><span id="ready" class="pill">检查客户端…</span><button id="check">重新检查</button><button id="cold-home">冷启动首页</button></div></header>
+<header><div class="brand"><span class="mark">M</span><div><h1>MobileWork <span>本地验证控制台</span></h1><p>Windows 功能探测 · 脚本执行 · 结果留档</p></div></div><div class="header-right"><span class="version">v0.0.8</span><span id="ready" class="pill">检查客户端…</span><button id="check">重新检查</button><button id="cold-home">冷启动首页</button></div></header>
 <main>
 <section class="notice">热启动：复用已运行的 MW，每项执行 3 轮，第 1 轮预热，只记录第 2、3 轮耗时及均值。冷启动：每批开始时退出托盘一次，再由控制台启动 MW；所选用例共用该进程，不再逐项重启；启动耗时与后续用例耗时分开记录。加载展示以目标首屏或弹层就绪为通过，明确空态也算完成；入口缺失或替代场景保留说明。测试期间请暂时不要操作客户端，结果用于 Windows 验证。</section>
 <section class="metrics"><article><span>用例范围</span><strong id="total">44</strong><small>8 个模块 · 对应原表行号</small></article><article><span>功能通过</span><strong id="passed">0</strong><small>加载展示及当前交互完成</small></article><article><span>部分验证</span><strong id="partial">0</strong><small>可查看已测范围和未覆盖项</small></article><article><span>阻塞 / 异常</span><strong id="issues">0</strong><small>保留原因与环境前置条件</small></article></section>
