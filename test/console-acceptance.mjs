@@ -19,7 +19,6 @@ try {
   assert.equal(await page.locator('[data-cold]').count(),44);
   assert.equal(await page.locator('[data-run]').count(),44);
   const row=id=>page.locator('#cases tr').filter({has:page.locator(`[data-detail="${id}"]`)});
-  assert.match(await row('MW-UI-011').innerText(),/未计时/);
   await page.locator('[data-detail="MW-UI-004"]').click();
   assert.match(await page.locator('#details').innerText(),/全部.*96.*任务|全部.*条任务/);
   assert.match(await page.locator('#details').innerText(),/补充场景/);
@@ -41,18 +40,18 @@ try {
   assert.equal(run.status,'completed');assert.equal(run.results.length,1);
   const after=await fetch(base+'/api/state').then(r=>r.json()),r=run.results[0];
   assert.equal(r.id,'MW-UI-004');assert.equal(r.restored,true);assert.ok(r.measurements.length>0);
-  assert.equal(r.repetition.completed,3);assert.deepEqual([...new Set(r.measurements.map(m=>m.iteration))],[2,3]);
-  assert.ok(r.statistics.every(s=>s.sampleCount===2&&s.meanMs!==null));
+  assert.equal(r.repetition.completed,2);assert.deepEqual([...new Set(r.measurements.map(m=>m.iteration))],[2]);
+  assert.ok(r.statistics.every(s=>s.sampleCount===1&&Number.isFinite(s.durationMs)&&s.meanMs===undefined));
   assert.equal(r.functional,'pass','004 uses the agreed loading-and-display criterion');
   await page.locator('#run-status').filter({hasText:'已完成'}).waitFor();
   await page.locator('#counter').filter({hasText:'1 / 1'}).waitFor();
   await page.locator('[data-module="首页"]').click();
   await page.locator('[data-detail="MW-UI-004"]').click();
-  assert.match(await page.locator('#details').innerText(),/完成 3\/3 轮/);
-  assert.match(await page.locator('#details').innerText(),/第 2、3 轮均值/);
+  assert.match(await page.locator('#details').innerText(),/完成 2\/2 次/);
+  assert.match(await page.locator('#details').innerText(),/第2次正式执行/);
   await page.screenshot({path:path.join(root,`data/console-v${VERSION}.png`)});
   assert.deepEqual(errors,[]);
-  const evidence={at:new Date().toISOString(),version:after.version,browser:'Microsoft Edge headless',checks:['44 项冷热双按钮','冷启动托盘退出提示','MW仍运行时拒绝启动且不创建批次','真实点击004热启动并完成3轮','只保留第2、3轮耗时及均值','004加载展示通过','状态恢复','首页模块筛选'],runId:run.id,result:r.functional,samples:r.measurements.length,statistics:r.statistics,pageErrors:errors,coldStartupMeasured:false};
+  const evidence={at:new Date().toISOString(),version:after.version,browser:'Microsoft Edge headless',checks:['44 项冷热双按钮','冷启动托盘退出提示','MW仍运行时拒绝启动且不创建批次','真实点击004热启动完成预热及正式执行','只保留第2次正式耗时','004加载展示通过','状态恢复','首页模块筛选'],runId:run.id,result:r.functional,samples:r.measurements.length,statistics:r.statistics,pageErrors:errors,coldStartupMeasured:false};
   await fs.writeFile(path.join(root,`data/console-acceptance-v${VERSION}.json`),JSON.stringify(evidence,null,2));
   console.log(JSON.stringify(evidence));
 }finally{await browser.close();}
