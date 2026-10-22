@@ -26,6 +26,19 @@ test('explicitly loaded empty state passes, while missing and substituted scenar
  assert.equal(assessResult(empty).functional,'pass');
  for(const id of ['MW-UI-013','MW-UI-018','MW-UI-037','MW-UI-045'])assert.equal(assessResult(sample(id)).functional,'partial');
 });
+
+test('download and legacy install timings stay supplemental without changing evidence or asserting UI compliance',()=>{
+ for(const label of ['市场＋下载至技能安装完成','点击安装至详情安装流程结束']){
+  for(const functional of ['pass','partial','failed','blocked']){
+   const raw={...sample('MW-UI-036'),functional,measurements:[{label,durationMs:15123.5,complete:true}],performance:{comparison:'exceeds_reference',hotThresholdMs:2000}};
+   const before=structuredClone(raw),r=assessResult(raw);
+   assert.equal(r.functional,['pass','partial'].includes(functional)?'partial':functional);
+   assert.equal(r.performance.comparison,'supporting_only');assert.equal(r.performance.hotThresholdMs,null);
+   assert.equal(r.measurements[0].durationMs,15123.5);assert.equal(r.measurements[0].targetRelation,'supporting');
+   assert.match(r.timingReview.note,/终点待确认/);assert.deepEqual(raw,before);assert.deepEqual(assessResult(r),r);
+  }
+ }
+});
 test('browser shows cold operation times, shared startup, latest-result counts, and source assessment without rewriting history',async t=>{
  const source=path.dirname(path.dirname(fileURLToPath(import.meta.url))),root=await fs.mkdtemp(path.join(os.tmpdir(),'mw-assessment-ui-'));
  await fs.mkdir(path.join(root,'data'));await fs.mkdir(path.join(root,'runs'));
@@ -38,13 +51,20 @@ test('browser shows cold operation times, shared startup, latest-result counts, 
   {id:'MW-UI-011',functional:'blocked',restored:true,startedAt:'2026-10-20T10:11:02Z',reason:'精选案例入口缺失',assertions:[],measurements:[]}
  ]};
  const warm={id:'1234567888-warm',mode:'warm',status:'completed',startedAt:'2026-10-20T09:00:00Z',selected:['MW-UI-005'],logs:[],results:[{...sample(),startedAt:'2026-10-20T09:00:01Z',measurements:[{label:'popup load',durationMs:100},{label:'selection',durationMs:80}],statistics:[{label:'popup load',meanMs:100,valuesMs:[90,110],sampleCount:2},{label:'selection',meanMs:80,valuesMs:[70,90],sampleCount:2}]}]};
+ const legacy={...sample('MW-UI-036'),startedAt:'2026-10-20T10:11:03Z',measurements:[{label:'点击安装至详情安装流程结束',durationMs:298.3,complete:true}]};
+ run.results.push(legacy);run.selected.push(legacy.id);
+ warm.results.push({...sample('MW-UI-036'),functional:'pass',startedAt:'2026-10-20T09:00:02Z',measurements:[{label:'市场＋下载至技能安装完成',durationMs:15123.5,complete:true}],statistics:[{label:'市场＋下载至技能安装完成',meanMs:15123.5,valuesMs:[17602.2,12644.8],sampleCount:2}],performance:{comparison:'exceeds_reference',hotThresholdMs:2000}});warm.selected.push('MW-UI-036');
  const raw=JSON.stringify(run,null,2);await fs.writeFile(path.join(root,'runs',runId+'.json'),raw);await fs.writeFile(path.join(root,'runs',warm.id+'.json'),JSON.stringify(warm));
  const app=await createConsole({port:0,projectRoot:root});
  const browser=await loadPlaywright().chromium.launch({executablePath:'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe',headless:true});
  t.after(async()=>{await browser.close();await new Promise(r=>app.server.close(r));await fs.rm(root,{recursive:true,force:true});});
  const base=`http://127.0.0.1:${app.port}`,page=await browser.newPage({viewport:{width:1600,height:1100}}),errors=[];page.on('pageerror',e=>errors.push(e.message));
  await page.goto(base);await page.locator('#passed').filter({hasText:'2'}).waitFor();
- assert.equal(await page.locator('#partial').innerText(),'1');assert.equal(await page.locator('#issues').innerText(),'1');
+ assert.equal(await page.locator('#partial').innerText(),'2');assert.equal(await page.locator('#issues').innerText(),'1');
+ const installRow=page.locator('tr').filter({has:page.locator('[data-detail="MW-UI-036"]')});
+ assert.match(await installRow.locator('td').nth(3).innerText(),/补充记录/);assert.match(await installRow.locator('td').nth(3).innerText(),/15123.5/);
+ assert.match(await installRow.locator('td').nth(3).innerText(),/界面计时待确认/);assert.doesNotMatch(await installRow.locator('td').nth(3).innerText(),/原表 ≤/);
+ assert.match(await installRow.locator('td').nth(4).innerText(),/界面计时待确认/);assert.match(await installRow.locator('td').nth(4).innerText(),/298.3/);
  const row=page.locator('tr').filter({has:page.locator('[data-detail="MW-UI-005"]')});
  assert.match(await row.locator('td').nth(3).innerText(),/100/);assert.match(await row.locator('td').nth(4).innerText(),/335.4/);
  assert.match(await row.locator('td').nth(3).innerText(),/popup load/);assert.match(await row.locator('td').nth(3).innerText(),/selection/);assert.match(await row.locator('td').nth(3).innerText(),/80/);

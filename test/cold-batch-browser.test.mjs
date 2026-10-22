@@ -19,6 +19,7 @@ test('browser confirms once and automatically runs both cold-batch cases',async 
   t.after(async()=>{await browser.close();await new Promise(r=>app.server.close(r));await fs.rm(root,{recursive:true,force:true});});
   const page=await browser.newPage({viewport:{width:1440,height:1080}});page.on('pageerror',e=>errors.push(e.message));
   await page.goto(`http://127.0.0.1:${app.port}`);await page.locator('#total').filter({hasText:'44'}).waitFor();
+  await page.locator('#run-cold:disabled').waitFor(); // Static total is present before the first state request finishes.
   assert.equal(await page.locator('#run-cold').isDisabled(),true);
   assert.equal(await page.locator('#run-cold').evaluate(e=>e.nextElementSibling.id),'run');
   await page.locator('input[data-id="MW-UI-004"]').check();await page.locator('input[data-id="MW-UI-005"]').check();
