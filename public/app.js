@@ -8,17 +8,17 @@ const byId=r=>Object.fromEntries((r?.results||[]).map(x=>[x.id,x]));
 const results=()=>historyId?(viewRun?.mode==='cold'?{}:byId(viewRun)):({...state?.latestResults,...(state?.active?.mode!=='cold'?byId(state?.active):{})});
 const coldResults=()=>historyId?(viewRun?.mode==='cold'?byId(viewRun):{}):({...state?.latestColdResults,...(state?.active?.mode==='cold'?byId(state?.active):{})});
 const newest=(warm,cold)=>!warm?cold:!cold?warm:(cold.startedAt||'')>(warm.startedAt||'')?cold:warm;
-const targetNote=c=>c.uiTimingPending?'<div class="muted">界面计时待确认；补充耗时不比较2秒目标</div>':c.hotSeconds!==null?`<div class="muted">原表 ≤ ${c.hotSeconds} s</div>`:'<div class="muted">原表无热态目标</div>';
+const targetNote=c=>c.installFlowTiming?'<div class="muted">2秒目标适用范围待研发确认；暂不判达标</div>':c.hotSeconds!==null?`<div class="muted">原表 ≤ ${c.hotSeconds} s</div>`:'<div class="muted">原表无热态目标</div>';
 const coldMetric=r=>{
   if(!r)return '<span class="muted">未测冷态</span>';
   const samples=(r.measurements||[]).filter(m=>Number.isFinite(m.durationMs));
   const lines=samples.map(m=>`<button data-cold-detail="${esc(r.id)}" title="${esc(m.label)}"><span class="metric-value">${esc(m.durationMs)}</span> ms</button><div class="muted">${esc(m.label)}${m.targetRelation==='supporting'?'（补充操作）':''}</div>`).join('');
-  return (r.timingReview?'<div class="muted">界面计时待确认；以下为补充记录</div>':'')+(lines||`<button data-cold-detail="${esc(r.id)}">查看记录 · 未取得用例计时</button>`)+`<div class="muted">${esc(names[r.functional]||r.functional)} · 冷批次单次</div>`+(r.coldStart?`<div class="muted">应用启动另计 ${esc(r.coldStart.durationMs)} ms</div>`:'');
+  return (r.timingReview?`<div class="muted">${r.timingReview.scope==='full'?'完整下载/安装耗时；目标待研发确认':'旧安装流程记录，未覆盖完整下载'}</div>`:'')+(lines||`<button data-cold-detail="${esc(r.id)}">查看记录 · 未取得用例计时</button>`)+`<div class="muted">${esc(names[r.functional]||r.functional)} · 冷批次单次</div>`+(r.coldStart?`<div class="muted">应用启动另计 ${esc(r.coldStart.durationMs)} ms</div>`:'');
 };
 const metric=(c,r)=>{
   if(!r?.measurements?.length)return '<span class="muted">未计时</span>';
   const main=r.statistics?.length?r.statistics.map(stat=>`<div class="muted">${esc(stat.label)}</div><span class="metric-value">${esc(stat.meanMs??'—')}</span> ms<div class="muted">第2、3轮：${stat.valuesMs.map(esc).join(' / ')} ms${stat.sampleCount!==2?'（样本不足）':''}</div>`).join(''):`<span class="metric-value" title="${esc(r.measurements[0].label)}">${r.measurements[0].durationMs}</span> ms<div class="muted">历史单次记录</div>`;
-  return (r.timingReview?'<div class="muted">补充记录：下载/安装流程</div>':'')+main+(r.measurements.every(m=>m.targetRelation==='supporting')?'<div class="muted">补充场景计时</div>':'');
+  return (r.timingReview?`<div class="muted">${r.timingReview.scope==='full'?'完整下载/安装全流程':'旧安装流程补充记录'}</div>`:'')+main+(r.measurements.every(m=>m.targetRelation==='supporting')?'<div class="muted">补充场景计时</div>':'');
 };
 async function api(url,body){const r=await fetch(url,body?{method:'POST',headers:{'Content-Type':'application/json','X-MW-CSRF':state.csrf},body:JSON.stringify(body)}:{});const j=await r.json();if(!r.ok)throw new Error(j.error||'请求失败');return j;}
 async function messageTask(fn){try{$('message').textContent='';await fn();}catch(e){$('message').textContent=e.message;}}
