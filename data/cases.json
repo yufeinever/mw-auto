@@ -113,6 +113,7 @@
     "row": 13,
     "module": "新建任务",
     "name": "会话内容搜索",
+    "currentMapping": "左侧工作任务区放大镜“搜索”→搜索任务弹窗，按任务名称查询（用户截图确认；与008同入口）",
     "target": "搜索框内输入并展示搜索结果",
     "sourceDescription": "",
     "coldSeconds": 1.0,
