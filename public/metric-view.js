@@ -45,8 +45,8 @@ export function metricRows(result,mode='warm'){
       samples:samples.filter(m=>m.label===s.label),history:!second,
       note:second?'首次预热不计入正式耗时；此处为第2次执行结果，不取均值。':`历史第2、3轮均值；样本：${(s.valuesMs||[]).join(' / ')} ms。`};
   });
-  return samples.map(m=>({label:m.label,durationMs:m.durationMs,samples:[m],history:mode==='warm',
-    note:mode==='cold'?'本批启动后的单次操作耗时，不代表该操作的独立冷加载。':'历史单次计时。'}));
+  return samples.map(m=>({label:m.label,durationMs:m.durationMs,samples:[m],history:mode==='warm'&&result.sequence!=='cold-then-warm',
+    note:mode==='cold'?'本批启动后的第1次操作耗时，不代表该操作的独立冷加载。':result.sequence==='cold-then-warm'?'第2轮热启动，单次实际执行结果，无额外预热。':'历史单次计时。'}));
 }
 export function compareMetric(spec,result,row,mode='warm'){
   const seconds=mode==='cold'?spec.coldSeconds:spec.hotSeconds;

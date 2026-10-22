@@ -44,7 +44,8 @@ test('second execution determines coverage and preserves every separately timed 
 test('warmup failure or failed recovery stops before the formal execution',async t=>{
   for(const change of [{functional:'failed',reason:'warmup failed'},{functional:'blocked'},{restored:false}]){
     let calls=0;const m=await fixture(t,{spawnCase:async()=>{calls++;return {...sample(900),...change};}});
-    const run=await m.start(['a']);await until(()=>!m.active);
+    const run=await m.start(['a']);await until(()=>!m.active||run.status==='waiting_recovery');
+    if(m.active)await m.control('stop');
     assert.equal(calls,1);assert.notEqual(run.results[0].functional,'pass');
     assert.deepEqual(run.results[0].measurements,[]);assert.deepEqual(run.results[0].repetition.recordedIterations,[]);
   }

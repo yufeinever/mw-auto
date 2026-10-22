@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url';
 import { createHash } from 'node:crypto';
 import { runColdStartup, COLD_ID } from './lib/cold-start.mjs';
 import { VERSION } from './lib/version.mjs';
+import { reportProgress } from './lib/worker.mjs';
 const root=path.dirname(fileURLToPath(import.meta.url)), lockPath=path.join(root,'data/client.lock');
 const result={id:COLD_ID,name:'应用冷启动 · 首页首屏',mode:'cold',consoleVersion:VERSION,startedAt:new Date().toISOString(),platform:process.platform,os:os.release(),functional:'blocked',testability:'blocked',assertions:[],limitations:['保留登录态、磁盘缓存和系统文件缓存；不是首次安装或清空全部缓存后的启动','只测首页首次展示的内容，不包含查看更多、逐条任务状态核对和后续模块交互','计时包含 CDP 连接及观察开销，不直接套用原表单个区域的阈值'],measurements:[],restored:false,performance:{status:'not_measured',cold:'not_measured',comparison:'not_compared'}};
 let lock;
@@ -18,6 +19,7 @@ try {
   }
   await lock.writeFile(String(process.pid));
   result.scriptSha256=createHash('sha256').update(await fs.readFile(fileURLToPath(import.meta.url))).update(await fs.readFile(path.join(root,'lib/cold-start.mjs'))).digest('hex');
+  reportProgress({stage:'冷启动：等待应用首页首屏就绪'});
   const sample=await runColdStartup();
   result.coldStart=sample;
   result.launchAt=sample.launchAt;result.observations=sample.observations;
@@ -34,3 +36,4 @@ try {
 }
 result.endedAt=new Date().toISOString();
 console.log(JSON.stringify(result));
+if(process.connected)process.disconnect();
