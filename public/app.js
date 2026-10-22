@@ -16,8 +16,7 @@ const coldMetric=r=>{
 };
 const metric=(c,r)=>{
   if(!r?.measurements?.length)return '<span class="muted">未计时</span>';
-  const stat=r.statistics?.[0];
-  const main=stat?`<span class="metric-value">${esc(stat.meanMs??'—')}</span> ms<div class="muted">第2、3轮：${stat.valuesMs.map(esc).join(' / ')} ms${stat.sampleCount!==2?'（样本不足）':''}</div>`:`<span class="metric-value" title="${esc(r.measurements[0].label)}">${r.measurements[0].durationMs}</span> ms<div class="muted">历史单次记录</div>`;
+  const main=r.statistics?.length?r.statistics.map(stat=>`<div class="muted">${esc(stat.label)}</div><span class="metric-value">${esc(stat.meanMs??'—')}</span> ms<div class="muted">第2、3轮：${stat.valuesMs.map(esc).join(' / ')} ms${stat.sampleCount!==2?'（样本不足）':''}</div>`).join(''):`<span class="metric-value" title="${esc(r.measurements[0].label)}">${r.measurements[0].durationMs}</span> ms<div class="muted">历史单次记录</div>`;
   return main+(r.measurements.every(m=>m.targetRelation==='supporting')?'<div class="muted">补充场景计时</div>':'');
 };
 async function api(url,body){const r=await fetch(url,body?{method:'POST',headers:{'Content-Type':'application/json','X-MW-CSRF':state.csrf},body:JSON.stringify(body)}:{});const j=await r.json();if(!r.ok)throw new Error(j.error||'请求失败');return j;}

@@ -37,7 +37,7 @@ test('browser shows cold operation times, shared startup, latest-result counts, 
   {...sample('MW-UI-013'),startedAt:'2026-10-20T10:11:01Z',originalScenario:{status:'blocked',reason:'原场景无入口'}},
   {id:'MW-UI-011',functional:'blocked',restored:true,startedAt:'2026-10-20T10:11:02Z',reason:'精选案例入口缺失',assertions:[],measurements:[]}
  ]};
- const warm={id:'1234567888-warm',mode:'warm',status:'completed',startedAt:'2026-10-20T09:00:00Z',selected:['MW-UI-005'],logs:[],results:[{...sample(),startedAt:'2026-10-20T09:00:01Z',measurements:[{label:'old',durationMs:100}]}]};
+ const warm={id:'1234567888-warm',mode:'warm',status:'completed',startedAt:'2026-10-20T09:00:00Z',selected:['MW-UI-005'],logs:[],results:[{...sample(),startedAt:'2026-10-20T09:00:01Z',measurements:[{label:'popup load',durationMs:100},{label:'selection',durationMs:80}],statistics:[{label:'popup load',meanMs:100,valuesMs:[90,110],sampleCount:2},{label:'selection',meanMs:80,valuesMs:[70,90],sampleCount:2}]}]};
  const raw=JSON.stringify(run,null,2);await fs.writeFile(path.join(root,'runs',runId+'.json'),raw);await fs.writeFile(path.join(root,'runs',warm.id+'.json'),JSON.stringify(warm));
  const app=await createConsole({port:0,projectRoot:root});
  const browser=await loadPlaywright().chromium.launch({executablePath:'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe',headless:true});
@@ -47,6 +47,7 @@ test('browser shows cold operation times, shared startup, latest-result counts, 
  assert.equal(await page.locator('#partial').innerText(),'1');assert.equal(await page.locator('#issues').innerText(),'1');
  const row=page.locator('tr').filter({has:page.locator('[data-detail="MW-UI-005"]')});
  assert.match(await row.locator('td').nth(3).innerText(),/100/);assert.match(await row.locator('td').nth(4).innerText(),/335.4/);
+ assert.match(await row.locator('td').nth(3).innerText(),/popup load/);assert.match(await row.locator('td').nth(3).innerText(),/selection/);assert.match(await row.locator('td').nth(3).innerText(),/80/);
  assert.match(await page.locator('#cold-result').innerText(),/7812.1/);
  await row.locator('[data-detail]').click();assert.match(await page.locator('#detail-title').innerText(),/冷启动/);
  assert.match(await page.locator('#details').innerText(),/7812.1/);assert.match(await page.locator('#details').innerText(),/原记录为部分验证/);
