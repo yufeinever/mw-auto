@@ -1,3 +1,4 @@
+import {metricRows,compareMetric,shortLabel,formatMs} from './metric-view.js';
 const $=id=>document.getElementById(id);
 const names={pass:'通过',partial:'部分验证',blocked:'阻塞',failed:'失败',interrupted:'中断',running:'运行中',paused:'已暂停',stopping:'停止中',stopped:'已停止',completed:'已完成',waiting_for_cold:'等待退出托盘'};
 let state,selected=new Set(),module='全部',chosen=null,chosenMode='warm',viewRun=null,historyId=null,busy=false,coldTargets=['MW-STARTUP-HOME'];
@@ -8,22 +9,19 @@ const byId=r=>Object.fromEntries((r?.results||[]).map(x=>[x.id,x]));
 const results=()=>historyId?(viewRun?.mode==='cold'?{}:byId(viewRun)):({...state?.latestResults,...(state?.active?.mode!=='cold'?byId(state?.active):{})});
 const coldResults=()=>historyId?(viewRun?.mode==='cold'?byId(viewRun):{}):({...state?.latestColdResults,...(state?.active?.mode==='cold'?byId(state?.active):{})});
 const newest=(warm,cold)=>!warm?cold:!cold?warm:(cold.startedAt||'')>(warm.startedAt||'')?cold:warm;
-const targetNote=c=>c.installFlowTiming?'<div class="muted">2秒目标适用范围待研发确认；暂不判达标</div>':c.hotSeconds!==null?`<div class="muted">原表 ≤ ${c.hotSeconds} s</div>`:'<div class="muted">原表无热态目标</div>';
-const coldMetric=r=>{
-  if(!r)return '<span class="muted">未测冷态</span>';
-  const samples=(r.measurements||[]).filter(m=>Number.isFinite(m.durationMs));
-  const lines=samples.map(m=>`<button data-cold-detail="${esc(r.id)}" title="${esc(m.label)}"><span class="metric-value">${esc(m.durationMs)}</span> ms</button><div class="muted">${esc(m.label)}${m.targetRelation==='supporting'?'（补充操作）':''}</div>`).join('');
-  return (r.timingReview?`<div class="muted">${r.timingReview.scope==='full'?'完整下载/安装耗时；目标待研发确认':'旧安装流程记录，未覆盖完整下载'}</div>`:'')+(lines||`<button data-cold-detail="${esc(r.id)}">查看记录 · 未取得用例计时</button>`)+`<div class="muted">${esc(names[r.functional]||r.functional)} · 冷批次单次</div>`+(r.coldStart?`<div class="muted">应用启动另计 ${esc(r.coldStart.durationMs)} ms</div>`:'');
+const hint=(text,label='说明')=>`<span class="help" tabindex="0" role="note" aria-label="${esc(label)}" title="${esc(text)}">ⓘ</span>`;
+const targetText=ms=>ms===null?'目标 —':'目标 ≤ '+formatMs(ms)+' ms';
+const renderMetrics=(c,r,mode='warm')=>{
+  const rows=metricRows(r,mode);
+  if(!rows.length){const comparison=compareMetric(c,r,null,mode);return `<div class="muted">未测</div><div class="metric-meta">${targetText(comparison.targetMs)}${comparison.text!=='未测'?hint(comparison.note):''}</div>`;}
+  return rows.map(row=>{
+    const comparison=compareMetric(c,r,row,mode);
+    const note=[row.label,row.note,comparison.note,row.history?'历史记录，未按当前规则重测。':'',c.currentMapping||''].filter(Boolean).join('\n');
+    return `<div class="timing-item"><div class="timing-heading"><span class="timing-label" title="${esc(row.label)}">${esc(shortLabel(row.label))}</span>${hint(note,row.history?'历史计时说明':'计时说明')}</div><div class="timing-value">${mode==='cold'?`<button class="time-link" data-cold-detail="${esc(r.id)}">${formatMs(row.durationMs)} <small>ms</small></button>`:`<span class="metric-value">${formatMs(row.durationMs)}</span> <small>ms</small>`}</div><div class="metric-meta"><span>${targetText(comparison.targetMs)}</span><span class="comparison ${comparison.tone}" title="${esc(comparison.note)}">${esc(comparison.text)}</span></div></div>`;
+  }).join('');
 };
-const sampleSummary=(r,s)=>{
-  if(r.repetition?.planned===2)return '第2次正式执行'+(s.sampleCount===1?'':'（样本不足）');
-  return '历史第2、3轮：'+s.valuesMs.join(' / ')+' ms'+(s.sampleCount!==2?'（样本不足）':'');
-};
-const metric=(c,r)=>{
-  if(!r?.measurements?.length)return '<span class="muted">未计时</span>';
-  const main=r.statistics?.length?r.statistics.map(stat=>`<div class="muted">${esc(stat.label)}</div><span class="metric-value">${esc(stat.durationMs??stat.meanMs??'—')}</span> ms<div class="muted">${esc(sampleSummary(r,stat))}</div>`).join(''):`<span class="metric-value" title="${esc(r.measurements[0].label)}">${r.measurements[0].durationMs}</span> ms<div class="muted">历史单次记录</div>`;
-  return (r.timingReview?`<div class="muted">${r.timingReview.scope==='full'?'完整下载/安装全流程':'旧安装流程补充记录'}</div>`:'')+main+(r.measurements.every(m=>m.targetRelation==='supporting')?'<div class="muted">补充场景计时</div>':'');
-};
+const metric=(c,r)=>renderMetrics(c,r);
+const coldMetric=(c,r)=>renderMetrics(c,r,'cold');
 async function api(url,body){const r=await fetch(url,body?{method:'POST',headers:{'Content-Type':'application/json','X-MW-CSRF':state.csrf},body:JSON.stringify(body)}:{});const j=await r.json();if(!r.ok)throw new Error(j.error||'请求失败');return j;}
 async function messageTask(fn){try{$('message').textContent='';await fn();}catch(e){$('message').textContent=e.message;}}
 const filtered=()=>state.catalog.filter(c=>module==='全部'||c.module===module);
@@ -33,7 +31,7 @@ function render(){
   $('total').textContent=state.catalog.length;$('passed').textContent=rr.filter(r=>r.functional==='pass').length;$('partial').textContent=rr.filter(r=>r.functional==='partial').length;$('issues').textContent=rr.filter(r=>['blocked','failed','interrupted'].includes(r.functional)).length;
   $('modules').innerHTML=['全部',...new Set(state.catalog.map(c=>c.module))].map(x=>`<button data-module="${esc(x)}" class="${module===x?'active':''}">${esc(x)}</button>`).join('');
   $('selection').textContent=`已选 ${selected.size} 项 · 当前显示 ${filtered().length} 项`;
-  $('cases').innerHTML=filtered().map(c=>{const r=all[c.id],cold=colds[c.id],latest=newest(r,cold);return `<tr><td><input type="checkbox" data-id="${c.id}" aria-label="选择 ${esc(c.name)}" ${selected.has(c.id)?'checked':''}></td><td><div class="case-id">${c.id} · ${esc(c.module)}</div><button class="case-name" data-detail="${c.id}">${esc(c.name)}</button>${c.currentMapping?`<div class="muted">当前映射：${esc(c.currentMapping)}</div>`:""}</td><td>${state.active?.current===c.id?badge('running'):badge(latest?.functional)}</td><td>${metric(c,r)}${targetNote(c)}</td><td>${coldMetric(cold)}</td><td><div class="row-actions"><button data-cold="${c.id}" ${state.active?'disabled':''}>冷启动</button><button data-run="${c.id}" ${state.active?'disabled':''}>热启动</button></div></td></tr>`;}).join('');
+  $('cases').innerHTML=filtered().map(c=>{const r=all[c.id],cold=colds[c.id],latest=newest(r,cold);return `<tr><td><input type="checkbox" data-id="${c.id}" aria-label="选择 ${esc(c.name)}" ${selected.has(c.id)?'checked':''}></td><td><div class="case-id">${c.id} · ${esc(c.module)}</div><button class="case-name" title="${esc(c.currentMapping||c.target||c.name)}" data-detail="${c.id}">${esc(c.name)}</button></td><td>${state.active?.current===c.id?badge('running'):badge(latest?.functional)}</td><td>${metric(c,r)}</td><td>${coldMetric(c,cold)}</td><td><div class="row-actions"><button data-cold="${c.id}" ${state.active?'disabled':''}>冷启动</button><button data-run="${c.id}" ${state.active?'disabled':''}>热启动</button></div></td></tr>`;}).join('');
   $('run').disabled=!!state.active||!selected.size;$('run-cold').disabled=!!state.active||!selected.size;$('cold-home').disabled=!!state.active;$('all').checked=filtered().every(c=>selected.has(c.id));
   const r=historyId?viewRun:(state.active||viewRun||state.latest);
   $('run-status').textContent=names[r?.status]||'空闲';$('run-status').className=`pill ${r?.status||''}`;$('current').textContent=r?.current?`正在执行 ${r.current} · ${r.mode==='cold'?'冷启动':'热启动'}`:r?`批次 ${r.id.split('-')[0]}`:'等待执行';$('progress').max=r?.selected.length||44;$('progress').value=r?.results.length||0;$('counter').textContent=`${r?.results.length||0} / ${r?.selected.length||0}`;

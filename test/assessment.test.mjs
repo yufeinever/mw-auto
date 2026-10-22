@@ -70,9 +70,9 @@ test('browser shows cold operation times, shared startup, latest-result counts, 
  await page.goto(base);await page.locator('#passed').filter({hasText:'3'}).waitFor();
  assert.equal(await page.locator('#partial').innerText(),'1');assert.equal(await page.locator('#issues').innerText(),'1');
  const installRow=page.locator('tr').filter({has:page.locator('[data-detail="MW-UI-036"]')});
- assert.match(await installRow.locator('td').nth(3).innerText(),/完整下载\/安装全流程/);assert.match(await installRow.locator('td').nth(3).innerText(),/15123.5/);
- assert.match(await installRow.locator('td').nth(3).innerText(),/待研发确认/);assert.doesNotMatch(await installRow.locator('td').nth(3).innerText(),/原表 ≤/);
- assert.match(await installRow.locator('td').nth(4).innerText(),/未覆盖完整下载/);assert.match(await installRow.locator('td').nth(4).innerText(),/298.3/);
+ assert.match(await installRow.locator('td').nth(3).innerText(),/下载 \/ 安装/);assert.match(await installRow.locator('td').nth(3).innerText(),/15123.5/);
+ assert.match(await installRow.locator('td').nth(3).innerText(),/待确认/);assert.doesNotMatch(await installRow.locator('td').nth(3).innerText(),/原表 ≤/);
+ assert.equal(await installRow.locator('.comparison.good,.comparison.bad').count(),0);assert.match(await installRow.locator('td').nth(4).innerText(),/旧安装流程/);assert.match(await installRow.locator('td').nth(4).innerText(),/298.3/);
  const row=page.locator('tr').filter({has:page.locator('[data-detail="MW-UI-005"]')});
  assert.match(await row.locator('td').nth(3).innerText(),/100/);assert.match(await row.locator('td').nth(4).innerText(),/335.4/);
  assert.match(await row.locator('td').nth(3).innerText(),/popup load/);assert.match(await row.locator('td').nth(3).innerText(),/selection/);assert.match(await row.locator('td').nth(3).innerText(),/80/);

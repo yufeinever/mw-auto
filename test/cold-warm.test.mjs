@@ -74,12 +74,12 @@ test('browser submits two executions, shows second-only timings and labels old a
   await page.locator('#run-cold:disabled').waitFor();
   assert.equal(await page.locator('#run').innerText(),'热启动所选');
   assert.equal(await page.getByRole('button',{name:'热启动',exact:true}).count(),2);
-  assert.match(await page.locator('#cases tr').first().innerText(),/历史第2、3轮/);
+  assert.match(await page.locator('#cases tr').first().locator('.help').getAttribute('title'),/历史第2、3轮/);
   await page.locator('[data-run="b"]').click();await until(()=>calls===2&&!app.manager.active);
   await page.locator('[data-detail="b"]').click();
   await page.locator('#details').filter({hasText:'完成 2/2 次'}).waitFor();
   const row=await page.locator('#cases tr').last().innerText(),details=await page.locator('#details').innerText();
-  assert.match(row,/42\s*ms/);assert.match(row,/第2次正式执行/);assert.doesNotMatch(row,/900|均值/);
+  assert.match(row,/42\s*ms/);assert.match(row,/目标 ≤ 1000 ms/);assert.equal(await page.locator('#cases tr').last().locator('.comparison.good').innerText(),'达标');assert.match(await page.locator('#cases tr').last().locator('.help').getAttribute('title'),/第2次执行结果/);assert.doesNotMatch(row,/第2次|首次预热/);assert.doesNotMatch(row,/900|均值/);
   assert.match(details,/第2次正式执行 42 ms/);assert.doesNotMatch(details,/900|第 3 轮/);
   await page.locator('[data-detail="a"]').click();assert.match(await page.locator('#details').innerText(),/历史第 2、3 轮均值 25 ms/);
   assert.equal(await fs.readFile(path.join(root,'runs',legacy.id+'.json'),'utf8'),raw);
