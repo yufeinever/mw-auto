@@ -3,6 +3,7 @@ import path from 'node:path';
 import {VERSION} from './lib/version.mjs';
 import {assessRun} from './lib/assessment.mjs';
 import {resultMode} from './public/batch-view.js';
+import {observationMarkdown} from './public/response-view.js';
 import { fileURLToPath } from 'node:url';
 const root=path.dirname(fileURLToPath(import.meta.url));
 const catalog=JSON.parse(await fs.readFile(path.join(root,'data/cases.json'),'utf8'));
@@ -20,5 +21,6 @@ md+='当前按已确认的加载展示/当前交互完成口径复核；明确�
 md+=Object.values(coldLatest).length?Object.values(coldLatest).map(r=>`- ${r.id}：${names[r.functional]}${r.sourceFunctional==='partial'&&r.functional==='pass'?'（按加载展示口径复核；原部分验证记录保留）':''}；${Number.isFinite(r.coldStart?.durationMs)?'本项应用启动 '+r.coldStart.durationMs+' ms':Number.isFinite(r.batchStartup?.durationMs)?'共享应用启动 '+r.batchStartup.durationMs+' ms，来源 '+r.batchStartup.caseId:'未取得应用启动计时（手动重启仅记录就绪与用户确认）'}；用例操作：${r.measurements?.map(m=>clean(m.label)+' '+m.durationMs+' ms'+(m.targetRelation==='supporting'?'（补充操作）':'')).join('；')||'未取得用例计时'}；批次 runs/${r.runId}.json。`).join('\n'):'尚未执行真实冷启动；需要用户从托盘退出 MW 后点击冷启动确认。';
 md+='\n## 计时与证据\n\n测量从渲染进程输入事件至指定 DOM 状态连续两帧稳定；不代表整页像素渲染完成。执行总耗时不能当作响应时间。没有热态阈值的项目不套用冷态阈值。标记 supporting 的样本属于补充场景，不与原场景阈值比较；功能结果中的部分验证不能解释为整项业务验收通过。\n\n每项完整证据保存在 `data/latest-results.json`，包含来源行、批次、断言、限制、时间和状态恢复记录；历史原始批次仍在 `runs/`，首轮适配失败不会被删除。\n\n';
 md+=`本快照涉及批次：\n\n${[...new Set(results.map(x=>x.result.runId))].map(id=>'- `runs/'+id+'.json`').join('\n')}\n`;
+md+=observationMarkdown([...results.map(c=>c.result),...Object.values(coldLatest)]);
 await fs.writeFile(path.join(root,'探测结果.md'),md);await fs.writeFile(path.join(root,'data/latest-results.json'),JSON.stringify({generatedAt:new Date().toISOString(),count,results,coldResults:coldLatest},null,2));
 console.log(JSON.stringify(count));

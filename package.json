@@ -1,7 +1,7 @@
 {
   "name": "mobilework-local-console",
-  "version": "0.0.19",
+  "version": "0.0.20",
   "private": true,
   "type": "module",
-  "scripts": { "start": "node server.mjs", "test": "node --test test/*.test.mjs" }
+  "scripts": { "start": "node server.mjs", "build:console": "node scripts/build-console.mjs", "test": "node --test test/*.test.mjs" }
 }
