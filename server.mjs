@@ -1,4 +1,5 @@
 import { readCdpConfig } from './lib/cdp-config.mjs';
+import { mainWindowTargets } from './lib/main-window.mjs';
 import http from 'node:http';
 import fs from 'node:fs/promises';
 import path from 'node:path';
@@ -25,9 +26,9 @@ export async function createConsole({port=17866,projectRoot=root,managerOptions=
         if(url.pathname==='/api/state'){const runs=(await manager.list()).map(assessRun);const latestResults={},latestColdResults={};for(const r of runs)for(const item of r.results){const target=resultMode(r,item)==='cold'?latestColdResults:latestResults;target[item.id]??={...item,runId:r.id};}return send(200,{version:VERSION,csrf,catalog,latestResults,latestColdResults,latestCold:runs.find(r=>['cold','combined'].includes(r.mode))||null,active:assessRun(manager.active),runs:runs.map(r=>({id:r.id,mode:r.mode||'warm',startedAt:r.startedAt,endedAt:r.endedAt,status:r.status,count:r.results.length,total:executionPlan(r).length})),latest:runs[0]||null});}
         if(url.pathname==='/api/cold-readiness'){const processes=await manager.listProcesses();return send(200,{runningCount:processes.length,canStart:!processes.length&&!manager.active&&!manager.preparingCold});}
         if(url.pathname==='/api/readiness') {
-          let ready=false;try{const r=await fetch('http://127.0.0.1:9223/json/list',{signal:AbortSignal.timeout(3000)});const list=await r.json();ready=list.some(t=>t.type==='page'&&t.webSocketDebuggerUrl&&/MobileWork\/resources\/app-dist\/index\.html/i.test(t.url));}catch{}
+          let ready=false,count=null;try{const r=await fetch('http://127.0.0.1:9223/json/list',{signal:AbortSignal.timeout(3000)});if(!r.ok)throw Error('CDP HTTP failure');count=mainWindowTargets(await r.json()).length;ready=count===1;}catch{}
           let config;try{config=await readCdpConfig();}catch(e){config={error:e.message};}
-          return send(200,{ready,config,endpoint:'127.0.0.1:9223',note:ready?'MobileWork 主窗口 target 已发现；实际脚本还会验证 UI':config.error||(!config.enabled?'CDP 配置未开启；点击启动并执行时将自动开启，重启后生效':'CDP 配置已开启，但尚未连接到主窗口；请从托盘退出后使用启动并执行')});
+          return send(200,{ready,config,endpoint:'127.0.0.1:9223',note:ready?'MobileWork 唯一主窗口已发现；实际脚本还会验证 UI':count!==null?(count>1?'发现多个 MobileWork 主窗口，无法确定测试目标':'CDP 已连接，但未识别到 MobileWork 主窗口，请检查客户端页面及版本'):config.error||(!config.enabled?'CDP 配置未开启；点击启动并执行时将自动开启，重启后生效':'CDP 配置已开启，但调试接口未连接；请检查客户端是否已完成启动')});
         }
         if(url.pathname.startsWith('/api/runs/')){try{const run=await manager.read(url.pathname.slice(10));return send(200,url.searchParams.get('raw')==='1'?run:assessRun(run));}catch{return send(404,{error:'记录不存在'});}}
         const files={'/':'index.html','/app.js':'app.js','/metric-view.js':'metric-view.js','/batch-view.js':'batch-view.js','/style.css':'style.css'};const f=files[url.pathname];if(!f)return send(404,{error:'Not found'});
