@@ -81,7 +81,12 @@ function details(id,mode){
   }
 }
 async function refresh(){if(busy)return;busy=true;try{state=await api('/api/state');if(dragging||!document.getSelection()?.isCollapsed)deferredRender=true;else render();}catch(e){$('message').textContent=e.message;}finally{busy=false;}}
-async function readiness(){const r=await api('/api/readiness');$('ready').textContent=r.ready?'客户端可连接':'客户端未就绪';$('ready').className=`pill ${r.ready?'pass':'blocked'}`;$('ready').title=r.note;}
+async function readiness(){
+  $('check').disabled=true;$('ready').textContent='检查中…';
+  try{const r=await api('/api/readiness');$('ready').textContent=r.ready?'客户端可连接':r.config?.enabled===false?'CDP 未开启':'客户端未就绪';$('ready').className=`pill ${r.ready?'pass':'blocked'}`;$('ready').title=`${r.note}（检查时间：${new Date().toLocaleTimeString('zh-CN')}）`;}
+  catch(e){$('ready').textContent='检查失败';$('ready').title=e.message;throw e;}
+  finally{$('check').disabled=false;}
+}
 async function start(ids){historyId=null;viewRun=null;await api('/api/run',{ids});await refresh();}
 function prepareCombined(ids){
   combinedTargets=[...ids];
