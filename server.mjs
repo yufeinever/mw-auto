@@ -36,7 +36,7 @@ export async function createConsole({port=17866,projectRoot=root,managerOptions=
           return send(200,{ready,config,endpoint:'127.0.0.1:9223',note:ready?'MobileWork 唯一主窗口已发现；实际脚本还会验证 UI':count!==null?(count>1?'发现多个 MobileWork 主窗口，无法确定测试目标':'CDP 已连接，但未识别到 MobileWork 主窗口，请检查客户端页面及版本'):config.error||(!config.enabled?'CDP 配置未开启；点击启动并执行时将自动开启，重启后生效':'CDP 配置已开启，但调试接口未连接；请检查客户端是否已完成启动')});
         }
         if(url.pathname.startsWith('/api/runs/')){try{const run=await manager.read(url.pathname.slice(10));return send(200,url.searchParams.get('raw')==='1'?run:assessRun(run));}catch{return send(404,{error:'记录不存在'});}}
-        const files={'/':'index.html','/app.js':'app.js','/metric-view.js':'metric-view.js','/batch-view.js':'batch-view.js','/response-view.js':'response-view.js','/style.css':'style.css','/probe':'probe.html','/probe/':'probe.html','/probe.js':'probe.js','/probe.css':'probe.css'};const f=files[url.pathname];if(!f)return send(404,{error:'Not found'});
+        const files={'/':'index.html','/app.js':'app.js','/metric-view.js':'metric-view.js','/batch-view.js':'batch-view.js','/response-view.js':'response-view.js','/style.css':'style.css','/probe':'probe.html','/probe/':'probe.html','/probe.js':'probe.js','/probe.css':'probe.css','/probe-coverage.js':'probe-coverage.js'};const f=files[url.pathname];if(!f)return send(404,{error:'Not found'});
         return send(200,await fs.readFile(path.join(projectRoot,'public',f)),f.endsWith('.html')?'text/html; charset=utf-8':f.endsWith('.js')?'text/javascript; charset=utf-8':'text/css; charset=utf-8');
       }
       if(req.method!=='POST')return send(405,{error:'不支持的方法'});
