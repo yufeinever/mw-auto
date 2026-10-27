@@ -13,13 +13,15 @@ function render(){
   $('version').textContent='v'+state.version;const a=state.active;
   $('start').disabled=!!a||working;$('stop').disabled=!a||working||a.status==='starting'||a.status==='stopping';
   for(const k of ['application','network','process','scenario','duration'])$(k).disabled=!!a||working;
-  if(a){for(const k of ['application','network','process'])$(k).checked=!!a.enabled[k];$('scenario').value=a.scenario;if(a.requestedSeconds)$('duration').value=String(a.requestedSeconds);}
+  if(a){for(const k of ['application','network','process'])$(k).checked=!!a.enabled[k];$('scenario').value=a.scenario;if(Number.isInteger(a.requestedSeconds))$('duration').value=String(a.requestedSeconds);}
+  $('duration').querySelector('[value="0"]').disabled=$('scenario').value!=='idle';
   for(const k of ['mark-idle','mark-operation'])$(k).disabled=working||a?.status!=='recording';
   $('run-state').innerHTML=`<span class="dot"></span><strong>${esc(a?names[a.status]:'未记录')}</strong><small>${a?'可继续在客户端操作':'点击开始记录新批次'}</small>`;
-  $('live').classList.toggle('hidden',!a);if(a){$('live-meta').textContent=`${a.id} · ${date(a.startedAt)} · 页面请求 ${a.application.requests}`;$('live-elapsed').textContent=Math.floor(a.durationSeconds/60)+':'+String(Math.floor(a.durationSeconds)%60).padStart(2,'0');}
+  $('live').classList.toggle('hidden',!a);if(a){$('live-meta').textContent=`${a.monitoring?`持续监测 · 第 ${a.monitoring.segment} 段 · `:''}${a.id} · ${date(a.startedAt)} · 本段页面请求 ${a.application.requests}`;const elapsed=a.monitoring?Math.max(0,(Date.parse(a.observedAt)-Date.parse(a.monitoring.startedAt))/1000):a.durationSeconds;$('live-elapsed').textContent=Math.floor(elapsed/60)+':'+String(Math.floor(elapsed)%60).padStart(2,'0');$('live-meta').title=a.monitoring?.note||'';}
   for(const k of ['application','network','process']){const s=(a||view)?.layers?.[k];$(k+'-status').textContent=s?`${names[s.state]||s.state}${s.dropped?' · 丢弃 '+s.dropped:''}${s.gaps?' · 缺口 '+s.gaps:''}${s.bufferPercent!==undefined?' · 缓冲 '+s.bufferPercent+'%':''}`:'待启动';$(k+'-status').title=s?.note||'';}
   $('summary').classList.toggle('hidden',!view);
-  if(view){$('summary-meta').textContent=`${names[view.status]||view.status} · ${date(view.startedAt)} → ${date(view.endedAt)} · ${view.durationSeconds||0}s · ${view.scenario==='idle'?'静置基线':'功能遍历'}`;
+  $('previous-segment').classList.toggle('hidden',!view?.monitoring?.previousId);$('previous-segment').disabled=working;
+  if(view){$('summary-meta').textContent=`${names[view.status]||view.status} · ${date(view.startedAt)} → ${date(view.endedAt)} · ${view.durationSeconds||0}s · ${view.scenario==='idle'?'静置基线':'功能遍历'}${view.monitoring?` · 持续监测第 ${view.monitoring.segment} 段（本段统计）`:''}`;$('summary-meta').title=view.monitoring?`${view.monitoring.note} 监测编号 ${view.monitoring.id}；前段 ${view.monitoring.previousId||'无'}；切段间隔 ${view.monitoring.gapMs}ms。${view.stopReason||''}`:view.stopReason||'';
     const observed=k=>view.enabled[k]&&!['unavailable','failed','disabled'].includes(view.layers[k].state);
     $('endpoint-count').textContent=observed('application')?view.application.uniqueEndpoints:'—';$('request-count').textContent=observed('application')?view.application.requests:'—';$('remote-count').textContent=!observed('network')?'未采集':view.endedAt?view.network.remoteRequests:'停止后汇总';$('connection-count').textContent=observed('process')?new Set(view.process.connections.map(r=>r.remote)).size:'—';
     renderInterfaces();renderEgress(view);
@@ -34,7 +36,7 @@ function render(){
     $('coverage').textContent=view.coverage;$('layer-notes').textContent=Object.entries(view.layers).map(([k,s])=>`${k}: ${names[s.state]}；${s.note}；丢弃 ${s.dropped}，缺口 ${s.gaps}${s.segments?`，分段 ${s.segments}，分段间隔 ${s.rollovers||0} 次 / ${s.segmentGapMs||0} ms`:''}${s.dataLoss?'，追踪数据丢失':''}${s.bufferFull?'，缓冲已满':''}`).join('\n');
     $('markers').textContent=(view.markers||[]).map(m=>`${date(m.at)} ${m.kind==='idle'?'静置开始':'功能操作开始'}`).join(' · ');
   }
-  $('history-list').innerHTML=(state.history||[]).map(r=>`<button class="history-item" data-id="${esc(r.id)}"><span>${esc(date(r.startedAt))} · ${names[r.status]||r.status}</span><strong>${esc(r.id)}</strong><small>页面请求 ${r.requests} · 网络层远端请求 ${r.remoteRequests}</small></button>`).join('')||'<p class="muted">暂无已结束批次</p>';
+  $('history-list').innerHTML=(state.history||[]).map(r=>`<button class="history-item" data-id="${esc(r.id)}"><span>${esc(date(r.startedAt))} · ${names[r.status]||r.status}${r.monitoring?` · 持续第 ${r.monitoring.segment} 段`:''}</span><strong>${esc(r.id)}</strong><small>页面请求 ${r.requests} · 网络层远端请求 ${r.remoteRequests}</small></button>`).join('')||'<p class="muted">暂无已结束批次</p>';
 }
 function renderInterfaces(){if(!view)return;const source=$('source').value,scope=$('scope').value;
   const rows=(source==='network'?view.network.interfaces:view.application.interfaces).filter(r=>scope==='all'||(scope==='local'?r.addressType==='local':r.addressType!=='local'));
@@ -46,7 +48,9 @@ $('start').onclick=()=>task(async()=>{$('message').textContent='正在连接记�
 $('stop').onclick=()=>task(async()=>{$('message').textContent='正在停止并汇总网络事件…';selected=null;view=await api('/api/probe/stop',{});$('message').textContent='记录已停止，汇总已保存。';});
 for(const kind of ['idle','operation'])$('mark-'+kind).onclick=()=>task(()=>api('/api/probe/mark',{kind}));
 $('source').onchange=renderInterfaces;$('scope').onchange=renderInterfaces;
+$('scenario').onchange=()=>{if($('scenario').value!=='idle'&&$('duration').value==='0')$('duration').value='300';render();};
 $('history-list').onclick=e=>{const b=e.target.closest('[data-id]');if(b)task(async()=>{view=await api('/api/probe/'+b.dataset.id);selected=b.dataset.id;});};
 $('latest').onclick=()=>task(async()=>{selected=null;view=null;});
+$('previous-segment').onclick=()=>task(async()=>{const id=view?.monitoring?.previousId;if(id){view=await api('/api/probe/'+id);selected=id;}});
 $('download').onclick=()=>{if(!view)return;const url=URL.createObjectURL(new Blob([JSON.stringify(view,null,2)],{type:'application/json'})),a=document.createElement('a');a.href=url;a.download=view.id+'.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);};
 initEgress();await load().catch(e=>$('message').textContent=e.message);setInterval(()=>{if(!working)load().catch(e=>$('message').textContent=e.message);},3000);

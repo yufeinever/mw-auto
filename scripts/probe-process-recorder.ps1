@@ -5,7 +5,7 @@ function Emit($value){[Console]::WriteLine(($value|ConvertTo-Json -Compress -Dep
 function Role($p){if($p.Name -ne 'MobileWork.exe'){return 'child'};if($p.CommandLine -match 'network\.mojom\.NetworkService'){return 'NetworkService'};if($p.CommandLine -match '--type=renderer'){return 'renderer'};if($p.CommandLine -match '--type='){return 'utility'};return 'main'}
 $started=Get-Date
 try {
-  while(((Get-Date)-$started).TotalSeconds -lt $Seconds){
+  while($Seconds -eq 0 -or ((Get-Date)-$started).TotalSeconds -lt $Seconds){
     if((Test-Path -LiteralPath $StopFile) -or !(Get-Process -Id $ParentId -ErrorAction SilentlyContinue)){break}
     $stamp=(Get-Date).ToUniversalTime().ToString('o')
     $all=@(Get-CimInstance Win32_Process -ErrorAction Stop)
