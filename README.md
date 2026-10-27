@@ -2,7 +2,15 @@
 
 代码仓库：[yufeinever/mw-auto](https://github.com/yufeinever/mw-auto)。仓库包含源码、44项脚本、功能目录、测试和版本文档；原设备运行记录与截图保留在本机，克隆后可以生成新的测试记录。
 
-独立版本 v0.0.21。监听 **http://127.0.0.1:17866**，通过 MobileWork 主窗口 CDP **127.0.0.1:9223** 执行。
+独立版本 v0.0.22。监听 **http://127.0.0.1:17866**，通过 MobileWork 主窗口 CDP **127.0.0.1:9223** 执行。
+
+接口探测页：**http://127.0.0.1:17866/probe**。可独立选择应用接口（页面 CDP）、网络链路（Chromium NetLog）、进程归属（MobileWork 进程树 TCP 采样）。选静置基线或功能遍历，点击开始，等待对应层显示记录中，再操作 MobileWork；手动停止或1/5/15分钟自动停止后生成汇总。网络层停止后才解析；页面层可实时计数。所有采集在后台进行，不自动触发产品业务操作。
+
+结果包括方法/归一化路径/地址类型、HTTP状态、传输失败、未完成、RPM/平均RPS/峰值秒请求、响应头及完整下载的P50/P95/最大值、同资源间隔，以及PID/远端地址/连接状态。可标记静置与功能操作开始时间，历史记录和导出JSON位于 `data/probes/`。默认最多15分钟、32MB追踪缓冲、64MB脱敏事件；超限和采集缺口显式记录。
+
+这是部分客户端网络覆盖：未接入Electron主进程 `session.webRequest`；NetLog仅覆盖Chromium网络栈，不能覆盖所有Node.js原生HTTP或子进程接口。三层不可简单相加，连接采样不是请求次数，2xx不是业务成功。单客户端频率反映观测调用量，不能测出后端CPU、容量或实际处理耗时。完整路径仍需客户端侧埋点支持，不要求提供生产服务端日志。
+
+原生接口参考：[Electron webRequest](https://www.electronjs.org/docs/latest/api/web-request)、[Electron NetLog](https://www.electronjs.org/docs/latest/api/net-log)、[CDP Tracing](https://chromedevtools.github.io/devtools-protocol/tot/Tracing/)。不替换现有webRequest监听器（该API每事件仅保留最后注册监听器），不修改安装包或开启系统全量抓包。NetLog事件在内存脱敏后才写入；请求头、正文、查询参数不落盘。路径模板复用允许词表，未知段折叠为`:id`，需按后续研发文档校准。
 
 ## 网络与模型响应诊断（v0.0.20）
 
